@@ -1,0 +1,95 @@
+tosca_definitions_version: cloudify_dsl_1_3
+
+description: >
+  This blueprint provides the basic architecture for an GCP blueprint.
+
+imports:
+  - https://raw.githubusercontent.com/cloudify-cosmo/cloudify-manager/4.2/resources/rest-service/cloudify/types/types.yaml
+  - http://www.getcloudify.org/spec/gcp-plugin/1.0/plugin.yaml
+
+inputs:
+
+  client_x509_cert_url:
+    type: string
+    default: { get_secret: client_x509_cert_url }
+
+  client_email:
+    type: string
+    default: { get_secret: client_email }
+
+  client_id:
+    type: string
+    default: { get_secret: client_id }
+
+  project_id:
+    type: string
+    default: { get_secret: project_id }
+
+  private_key_id:
+    type: string
+    default: { get_secret: private_key_id }
+
+  private_key:
+    type: string
+    default: { get_secret: private_key }
+
+  zone:
+    type: string
+    default: { get_secret: zone }
+
+  region:
+    type: string
+    default: { get_secret: region }
+
+  security_group_rules:
+    default:
+      tcp:
+        - 22
+
+dsl_definitions:
+
+  client_config: &gcp_config
+    auth:
+      type: service_account
+      auth_uri: https://accounts.google.com/o/oauth2/auth
+      token_uri: https://accounts.google.com/o/oauth2/token
+      auth_provider_x509_cert_url: https://www.googleapis.com/oauth2/v1/certs
+      client_x509_cert_url: { get_input: client_x509_cert_url }
+      client_email: { get_input: client_email }
+      client_id: { get_input: client_id }
+      project_id: { get_input: project_id }
+      private_key_id: { get_input: private_key_id }
+      private_key: { get_input: private_key }
+    project: { get_input: project_id }
+    zone: { get_input: zone }
+
+node_templates:
+
+  security_group:
+    type: cloudify.gcp.nodes.FirewallRule
+    properties:
+      gcp_config: *gcp_config
+      allowed: { get_input: security_group_rules }
+      sources:
+        - 0.0.0.0/0
+    relationships:
+      - type: cloudify.relationships.connected_to
+        target: network
+
+  subnetwork:
+    type: cloudify.gcp.nodes.SubNetwork
+    properties:
+      use_external_resource: true
+      name: { get_secret: management_subnetwork_name }
+      region: { get_secret: region }
+      gcp_config: *gcp_config
+    relationships:
+      - type: cloudify.gcp.relationships.contained_in_network
+        target: network
+
+  network:
+    type: cloudify.gcp.nodes.Network
+    properties:
+      use_external_resource: true
+      name: { get_secret: management_network_name }
+      gcp_config: *gcp_config

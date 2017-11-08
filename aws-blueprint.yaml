@@ -1,0 +1,98 @@
+tosca_definitions_version: cloudify_dsl_1_3
+
+description: >
+  This blueprint provides the basic architecture for an AWS blueprint.
+
+imports:
+  - https://raw.githubusercontent.com/cloudify-cosmo/cloudify-manager/4.2/resources/rest-service/cloudify/types/types.yaml
+  - https://raw.githubusercontent.com/cloudify-cosmo/cloudify-aws-plugin/1.5.1/plugin.yaml
+
+
+inputs:
+
+  security_group_rules:
+    default:
+    - ip_protocol: tcp
+      from_port: 22
+      to_port: 22
+      cidr_ip: 0.0.0.0/0
+
+dsl_definitions:
+
+    aws_config: &aws_config
+      aws_access_key_id: { get_secret: aws_access_key_id }
+      aws_secret_access_key: { get_secret: aws_secret_access_key }
+      ec2_region_name: { get_secret: ec2_region_name }
+      ec2_region_endpoint: { get_secret: ec2_region_endpoint }
+
+node_templates:
+
+  public_subnet_nic:
+    type: cloudify.aws.nodes.Interface
+    properties:
+      aws_config: *aws_config
+    relationships:
+      - type: cloudify.aws.relationships.connected_to_subnet
+        target: public_subnet
+      - type: cloudify.aws.relationships.connected_to_security_group
+        target: security_group
+      - type: cloudify.aws.relationships.connected_to_elastic_ip
+        target: public_ip
+
+  private_subnet_nic:
+    type: cloudify.aws.nodes.Interface
+    properties:
+      aws_config: *aws_config
+    relationships:
+      - type: cloudify.aws.relationships.connected_to_subnet
+        target: private_subnet
+      - type: cloudify.aws.relationships.connected_to_security_group
+        target: security_group
+
+  security_group:
+    type: cloudify.aws.nodes.SecurityGroup
+    properties:
+      aws_config: *aws_config
+      description: Security Group for Mongo VMs
+      rules: { get_input: security_group_rules }
+    relationships:
+    - type: cloudify.aws.relationships.security_group_contained_in_vpc
+      target: vpc
+
+  public_ip:
+    type: cloudify.aws.nodes.ElasticIP
+    properties:
+      aws_config: *aws_config
+      domain: vpc
+
+  public_subnet:
+    type: cloudify.aws.nodes.Subnet
+    properties:
+      aws_config: *aws_config
+      use_external_resource: true
+      resource_id: { get_secret: public_subnet_id }
+      cidr_block: N/A
+      availability_zone: N/A
+    relationships:
+    - type: cloudify.aws.relationships.subnet_contained_in_vpc
+      target: vpc
+
+  private_subnet:
+    type: cloudify.aws.nodes.Subnet
+    properties:
+      aws_config: *aws_config
+      use_external_resource: true
+      resource_id: { get_secret: private_subnet_id }
+      cidr_block:  N/A
+      availability_zone:  N/A
+    relationships:
+    - type: cloudify.aws.relationships.subnet_contained_in_vpc
+      target: vpc
+
+  vpc:
+    type: cloudify.aws.nodes.VPC
+    properties:
+      aws_config: *aws_config
+      use_external_resource: true
+      resource_id: { get_secret: vpc_id }
+      cidr_block: N/A

@@ -5,7 +5,7 @@ description: >
 
 imports:
   - https://raw.githubusercontent.com/cloudify-cosmo/cloudify-manager/4.2/resources/rest-service/cloudify/types/types.yaml
-  - https://raw.githubusercontent.com/cloudify-cosmo/cloudify-openstack-plugin/2.2.0/plugin.yaml
+  - http://www.getcloudify.org/spec/openstack-plugin/2.4.1.1/plugin.yaml
 
 inputs:
 

@@ -4,8 +4,8 @@ description: >
   This blueprint provides the basic architecture for an GCP blueprint.
 
 imports:
-  - https://raw.githubusercontent.com/cloudify-cosmo/cloudify-manager/4.2/resources/rest-service/cloudify/types/types.yaml
-  - http://www.getcloudify.org/spec/gcp-plugin/1.2.0/plugin.yaml
+  - http://www.getcloudify.org/spec/cloudify/4.2/types.yaml
+  - http://www.getcloudify.org/spec/gcp-plugin/1.3.0.1/plugin.yaml
 
 inputs:
 
@@ -40,6 +40,14 @@ inputs:
   region:
     type: string
     default: { get_secret: region }
+
+  network_name:
+    type: string
+    default: { get_secret: management_network_name }
+
+  subnetwork_name:
+    type: string
+    default: { get_secret: management_subnetwork_name }
 
   security_group_rules:
     default:
@@ -80,8 +88,8 @@ node_templates:
     type: cloudify.gcp.nodes.SubNetwork
     properties:
       use_external_resource: true
-      name: { get_secret: management_subnetwork_name }
-      region: { get_secret: region }
+      name: { get_input: subnetwork_name }
+      region: { get_input: region }
       gcp_config: *gcp_config
     relationships:
       - type: cloudify.gcp.relationships.contained_in_network
@@ -91,5 +99,5 @@ node_templates:
     type: cloudify.gcp.nodes.Network
     properties:
       use_external_resource: true
-      name: { get_secret: management_network_name }
+      name: { get_input: network_name }
       gcp_config: *gcp_config

@@ -1,0 +1,89 @@
+tosca_definitions_version: cloudify_dsl_1_3
+
+imports:
+  - http://www.getcloudify.org/spec/cloudify/4.2/types.yaml
+  - http://www.getcloudify.org/spec/utilities-plugin/1.4.5/plugin.yaml
+  - imports/ansible.yaml
+
+inputs:
+
+  resource_prefix:
+    default: cfy-temp
+
+  manager_network:
+    default: external
+
+  network_deployment_name:
+    default: gcp-example-network
+
+dsl_definitions:
+
+  client_config: &gcp_config
+    auth:
+      type: service_account
+      auth_uri: https://accounts.google.com/o/oauth2/auth
+      token_uri: https://accounts.google.com/o/oauth2/token
+      auth_provider_x509_cert_url: https://www.googleapis.com/oauth2/v1/certs
+      client_x509_cert_url: { get_secret: gcp_client_x509_cert_url }
+      client_email: { get_secret: gcp_client_email }
+      client_id: { get_secret: gcp_client_id }
+      project_id: { get_secret: gcp_project_id }
+      private_key_id: { get_secret: gcp_private_key_id }
+      private_key: { get_secret: gcp_private_key }
+    project: { get_secret: gcp_project_id }
+    zone: { get_secret: gcp_zone }
+
+node_templates:
+
+  fw:
+    type: cloudify.gcp.nodes.FirewallRule
+    properties:
+      gcp_config: *gcp_config
+      allowed:
+        tcp:
+        - 22
+      sources:
+        - 0.0.0.0/0
+    relationships:
+      - type: cloudify.relationships.connected_to
+        target: network
+
+  public_subnet:
+    type: cloudify.gcp.nodes.SubNetwork
+    properties:
+      use_external_resource: true
+      name: { get_attribute: [ gcp, deployment, outputs, public_subnet ] }
+      region: { get_attribute: [ gcp, deployment, outputs, region ] }
+      gcp_config: *gcp_config
+    relationships:
+    - type: cloudify.gcp.relationships.contained_in_network
+      target: network
+
+  network:
+    type: cloudify.gcp.nodes.Network
+    properties:
+      use_external_resource: true
+      name: { get_attribute: [ gcp, deployment, outputs, network ] }
+      gcp_config: *gcp_config
+    relationships:
+    - type: cloudify.relationships.contained_in
+      target: gcp
+
+  gcp:
+    type: cloudify.nodes.DeploymentProxy
+    properties:
+      resource_config:
+        blueprint:
+          id: { get_input: network_deployment_name }
+          blueprint_archive: https://github.com/cloudify-examples/gcp-example-network/archive/master.zip
+          main_file_name: simple-blueprint.yaml
+          external_resource: external
+        deployment:
+          id: { get_input: network_deployment_name }
+          outputs:
+            network: network
+            public_subnet: public_subnet
+            region: region
+            zone: zone
+          external_resource: external
+        reexecute: false
